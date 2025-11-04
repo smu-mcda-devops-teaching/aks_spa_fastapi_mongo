@@ -1,0 +1,7 @@
+replicaCount: 2
+image:
+  repository: myacr.azurecr.io/backend
+  tag: latest
+keyVault:
+  name: mykeyvaultaks
+  tenantId: "<tenant-id>"

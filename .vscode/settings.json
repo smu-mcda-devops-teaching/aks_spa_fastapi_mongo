@@ -1,0 +1,11 @@
+{
+    "yaml.schemas": {
+        "https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/master/service-schema.json": [
+            "file:///Users/gbenroselere/Documents/development/mcda-2025/aks_spa_fastapi_mongo/azure-pipelines-build.yml",
+            "file:///Users/gbenroselere/Documents/development/mcda-2025/aks_spa_fastapi_mongo/azure-pipelines-deploy.yml",
+            "file:///Users/gbenroselere/Documents/development/mcda-2025/aks_spa_fastapi_mongo/build/azure-pipelines-build.yml",
+            "file:///Users/gbenroselere/Documents/development/mcda-2025/aks_spa_fastapi_mongo/build/azure-pipelines-deploy.yml",
+            "file:///Users/gbenroselere/Documents/development/mcda-2025/aks_spa_fastapi_mongo/build/azure-pipelines-infra.yml"
+        ]
+    }
+}

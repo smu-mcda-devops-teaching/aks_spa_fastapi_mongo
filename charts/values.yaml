@@ -1,0 +1,13 @@
+global:
+  image:
+    repository: myacr.azurecr.io
+    tag: latest
+  keyVault:
+    name: mykeyvaultaks
+    tenantId: <tenant-id>
+frontend:
+  replicaCount: 2
+backend:
+  replicaCount: 2
+ingress:
+  host: myapp.example.com

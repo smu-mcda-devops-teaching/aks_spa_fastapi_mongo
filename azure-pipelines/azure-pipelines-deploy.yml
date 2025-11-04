@@ -1,0 +1,17 @@
+stages:
+- stage: Deploy
+  jobs:
+  - job: DeployToAKS
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'MyServiceConnection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az aks get-credentials --resource-group aks-rg --name myakscluster
+          helm upgrade --install frontend ./charts/frontend --set image.tag=$(Build.BuildId)
+          helm upgrade --install backend ./charts/backend --set image.tag=$(Build.BuildId)
+          helm upgrade --install ingress ./charts/ingress

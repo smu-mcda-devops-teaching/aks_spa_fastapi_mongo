@@ -1,0 +1,7 @@
+replicaCount: 2
+image:
+  repository: myacr.azurecr.io/frontend
+  tag: latest
+service:
+  type: ClusterIP
+  port: 80

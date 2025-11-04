@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pymongo
+motor
+pydantic
+pytest
+python-dotenv
+faker
+stripe
+paypalrestsdk
+azure-identity
+httpx

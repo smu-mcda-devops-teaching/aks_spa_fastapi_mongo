@@ -1,0 +1,45 @@
+trigger:
+  branches:
+    include:
+      - main
+variables:
+  acrName: "myacrregistry"
+  imageTag: "$(Build.BuildId)"
+stages:
+- stage: Build
+  jobs:
+  - job: BuildAndPush
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+    - script: |
+        cd frontend
+        npm install
+        npm run build
+      displayName: 'Build React App'
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.11'
+    - script: |
+        cd backend
+        pip install -r requirements.txt
+      displayName: 'Install Python Dependencies'
+    - task: Docker@2
+      inputs:
+        containerRegistry: '$(acrName)'
+        repository: 'frontend'
+        command: 'buildAndPush'
+        Dockerfile: 'frontend/Dockerfile'
+        tags: |
+          $(imageTag)
+    - task: Docker@2
+      inputs:
+        containerRegistry: '$(acrName)'
+        repository: 'backend'
+        command: 'buildAndPush'
+        Dockerfile: 'backend/Dockerfile'
+        tags: |
+          $(imageTag)

@@ -1,0 +1,152 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infra/*
+      - charts/*
+
+variables:
+  terraformVersion: '1.6.0'
+  workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+
+stages:
+- stage: ValidateTerraform
+  displayName: 'Validate Terraform Configuration'
+  jobs:
+  - job: TerraformValidate
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: '$(terraformVersion)'
+      displayName: 'Install Terraform'
+    
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account show
+          # Optional: uncomment if you need to set a specific subscription
+          # az account set --subscription "$(AZURE_SUBSCRIPTION_ID)"
+      displayName: 'Azure Login'
+    
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(workingDirectory)'
+        backendServiceArm: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+        # Uncomment below for remote state backend (recommended for production)
+        # backendAzureRmResourceGroupName: 'terraform-state-rg'
+        # backendAzureRmStorageAccountName: 'terraformstate'
+        # backendAzureRmContainerName: 'tfstate'
+        # backendAzureRmKey: 'terraform.tfstate'
+      displayName: 'Terraform Init'
+    
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+        workingDirectory: '$(workingDirectory)'
+        # validate doesn't need Azure authentication
+      displayName: 'Terraform Validate'
+    
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(workingDirectory)'
+        environmentServiceNameAzureRM: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+        commandOptions: '-out=$(workingDirectory)/tfplan'
+      displayName: 'Terraform Plan'
+    
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(workingDirectory)'
+        artifactName: 'terraform-plan'
+        publishLocation: 'pipeline'
+        patterns: 'tfplan'
+      displayName: 'Publish Terraform Plan'
+
+- stage: DeployInfrastructure
+  displayName: 'Deploy Infrastructure'
+  dependsOn: ValidateTerraform
+  condition: succeeded()
+  jobs:
+  - deployment: TerraformApply
+    pool:
+      vmImage: 'ubuntu-latest'
+    environment: 'production' # Requires approval if configured
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: '$(terraformVersion)'
+            displayName: 'Install Terraform'
+          
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account show
+              displayName: 'Azure Login'
+          
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifactName: 'terraform-plan'
+              targetPath: '$(workingDirectory)/'
+            displayName: 'Download Terraform Plan'
+          
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(workingDirectory)'
+              backendServiceArm: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+              # Uncomment below for remote state backend (recommended for production)
+              # backendAzureRmResourceGroupName: 'terraform-state-rg'
+              # backendAzureRmStorageAccountName: 'terraformstate'
+              # backendAzureRmContainerName: 'tfstate'
+              # backendAzureRmKey: 'terraform.tfstate'
+            displayName: 'Terraform Init'
+          
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(workingDirectory)'
+              environmentServiceNameAzureRM: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+              commandOptions: '-auto-approve $(workingDirectory)/tfplan'
+            displayName: 'Terraform Apply'
+
+- stage: ValidateHelmCharts
+  displayName: 'Validate Helm Charts'
+  dependsOn: DeployInfrastructure
+  condition: succeeded()
+  jobs:
+  - job: HelmValidate
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: HelmInstaller@1
+      inputs:
+        helmVersionToInstall: 'latest'
+      displayName: 'Install Helm'
+    
+    - script: |
+        helm lint charts/
+        helm lint charts/backend/
+        helm lint charts/frontend/
+        helm lint charts/ingress/
+      displayName: 'Validate Helm Charts'
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
