@@ -43,16 +43,6 @@ stages:
         terraformVersion: '$(terraformVersion)'
       displayName: 'Install Terraform'
 
-    # Cache .terraform (plugin/provider) per infra folder to speed repeated pipeline runs.
-    - task: Cache@2
-      displayName: 'Cache Terraform .terraform directory'
-      inputs:
-        key: 'terraform | $(Agent.OS) | $(envName) | **/*.tf* **/versions.tf'
-        path: '$(infraPath)/.terraform'
-        restoreKeys: |
-          terraform | $(Agent.OS) | $(envName)
-      condition: succeededOrFailed()
-
     # Optional: cache provider plugin cache under user's terraform plugin cache if you use plugin caching dir
     - task: Cache@2
       displayName: 'Cache Terraform plugin cache (~/.terraform.d/plugin-cache)'
