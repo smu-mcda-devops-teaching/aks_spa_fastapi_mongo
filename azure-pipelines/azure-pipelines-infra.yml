@@ -131,16 +131,6 @@ stages:
         helmVersionToInstall: 'latest'
       displayName: 'Install Helm'
 
-    # Cache Helm chart repository/cache to speed repeated operations (optional)
-    - task: Cache@2
-      displayName: 'Cache Helm home/cache'
-      inputs:
-        key: 'helm | $(Agent.OS) | charts | $(Build.SourceVersion)'
-        path: '$(HOME)/.cache/helm'
-        restoreKeys: |
-          helm | $(Agent.OS) | charts
-      condition: succeededOrFailed()
-
     - script: |
         set -e
         cd charts
