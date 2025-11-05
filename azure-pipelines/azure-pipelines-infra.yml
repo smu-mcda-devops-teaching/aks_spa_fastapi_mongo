@@ -66,9 +66,10 @@ stages:
       name: tfInit
       inputs:
         provider: 'azurerm'
-        command: 'init -backend-config=$(envName)/backend.conf'
+        command: 'init'
+        commandOptions: '-backend-config=backend.conf'
         workingDirectory: '$(infraPath)'
-        environmentServiceNameAzureRM: '$(serviceConnection)'
+        backendServiceArm: '$(serviceConnection)'
       displayName: 'Terraform Init (env: $(envName))'
     
     # - task: AzureCLI@2
