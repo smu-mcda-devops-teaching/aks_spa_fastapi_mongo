@@ -14,9 +14,6 @@ resource "helm_release" "grafana-k8s-monitoring" {
   atomic           = true
   timeout          = 300
 
-  # Use values file from charts directory
-  values = [file("${path.module}/../charts/values.yaml")]
-
   # Set cluster name from actual AKS resource
   set {
     name  = "cluster.name"
