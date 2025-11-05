@@ -54,6 +54,10 @@ stages:
         command: 'init'
         workingDirectory: '$(infraPath)'
         backendServiceArm: '${{ parameters.serviceConnection }}'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
     - task: TerraformTaskV4@4
       inputs:
         provider: 'azurerm'
@@ -61,6 +65,10 @@ stages:
         workingDirectory: '$(infraPath)'
         environmentServiceNameAzureRM: '${{ parameters.serviceConnection }}'
         commandOptions: '-auto-approve $(infraPath)/tfplan'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
     - script: |
         set -e
         cd "$(infraPath)"
@@ -141,6 +149,10 @@ stages:
         command: 'init'
         workingDirectory: '$(infraPath)'
         backendServiceArm: '${{ parameters.serviceConnection }}'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
     - task: TerraformTaskV4@4
       inputs:
         provider: 'azurerm'
@@ -148,6 +160,10 @@ stages:
         workingDirectory: '$(infraPath)'
         environmentServiceNameAzureRM: '${{ parameters.serviceConnection }}'
         commandOptions: '-auto-approve $(infraPath)/tfplan'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
     - script: |
         set -e
         cd "$(infraPath)"
@@ -219,6 +235,10 @@ stages:
         command: 'init'
         workingDirectory: '$(infraPath)'
         backendServiceArm: '${{ parameters.serviceConnection }}'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
     - task: TerraformTaskV4@4
       inputs:
         provider: 'azurerm'
@@ -226,6 +246,10 @@ stages:
         workingDirectory: '$(infraPath)'
         environmentServiceNameAzureRM: '${{ parameters.serviceConnection }}'
         commandOptions: '-auto-approve $(infraPath)/tfplan'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
     - script: |
         set -e
         cd "$(infraPath)"

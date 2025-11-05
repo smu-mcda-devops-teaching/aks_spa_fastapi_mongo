@@ -54,6 +54,10 @@ stages:
         command: 'init'
         workingDirectory: '$(infraPath)'
         backendServiceArm: '$(serviceConnection)'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
       displayName: 'Terraform Init (env: $(envName))'
     
     - task: TerraformTaskV4@4
@@ -61,6 +65,10 @@ stages:
         provider: 'azurerm'
         command: 'validate'
         workingDirectory: '$(infraPath)'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
       displayName: 'Terraform Validate (env: $(envName))'
     
     - task: TerraformTaskV4@4
@@ -70,6 +78,10 @@ stages:
         workingDirectory: '$(infraPath)'
         environmentServiceNameAzureRM: '$(serviceConnection)'
         commandOptions: '-out=$(infraPath)/tfplan'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'tfstatemcda2025'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: '$(envName)/terraform.tfstate'
       displayName: 'Terraform Plan (env: $(envName))'
     
     - task: PublishPipelineArtifact@1

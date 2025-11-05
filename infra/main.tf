@@ -57,9 +57,9 @@ resource "azurerm_kubernetes_cluster" "aks" {
   dns_prefix          = "mcda-${local.env_suffix}"
 
   default_node_pool {
-    name                = "default"
-    node_count          = var.enable_aks_auto_scaling ? null : var.aks_node_count
-    vm_size             = var.aks_vm_size
+    name                 = "default"
+    node_count           = var.enable_aks_auto_scaling ? null : var.aks_node_count
+    vm_size              = var.aks_vm_size
     auto_scaling_enabled = var.enable_aks_auto_scaling
 
     dynamic "auto_scaling" {
@@ -126,7 +126,7 @@ resource "azurerm_cosmosdb_account" "cosmosdb" {
     }
   }
 
-  automatic_failover_enabled = var.cosmos_db_enable_automatic_failover
+  automatic_failover_enabled        = var.cosmos_db_enable_automatic_failover
   is_virtual_network_filter_enabled = var.cosmos_db_is_virtual_network_filter_enabled
 
   tags = {
