@@ -48,16 +48,6 @@ stages:
         terraformVersion: '$(terraformVersion)'
       displayName: 'Install Terraform'
 
-    # Optional: cache provider plugin cache under user's terraform plugin cache if you use plugin caching dir
-    - task: Cache@2
-      displayName: 'Cache Terraform plugin cache (~/.terraform.d/plugin-cache)'
-      inputs:
-        key: 'terraform-plugins | $(Agent.OS) | $(envName) | $(Build.SourceVersion)'
-        path: '$(HOME)/.terraform.d/plugin-cache'
-        restoreKeys: |
-          terraform-plugins | $(Agent.OS) | $(envName)
-      condition: succeededOrFailed()
-
     - task: AzureCLI@2
       inputs:
         azureSubscription: '$(serviceConnection)'
