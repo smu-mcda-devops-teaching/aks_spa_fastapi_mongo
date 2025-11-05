@@ -796,3 +796,6 @@ MigrationBackup/
 .ionide/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,flask,vs,visualstudiocode,azurite,react,node
+# Terraform secrets files
+**/secrets.tfvars
+**/*.secrets.tfvars

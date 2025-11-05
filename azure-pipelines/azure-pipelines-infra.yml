@@ -1,3 +1,28 @@
+# ============================================================================
+# Infrastructure CI Pipeline
+# 
+# This pipeline validates, plans, and packages infrastructure and applications:
+# 
+# Stage 1: ValidateTerraform
+#   - Validates Terraform configurations for dev, stage, prod
+#   - Creates Terraform plans (infrastructure + cluster tools)
+#   - Includes: AKS, ACR, KeyVault, CosmosDB, Prometheus, Grafana, Nginx
+#
+# Stage 2: ValidateHelmCharts
+#   - Lints Helm charts
+#   - Validates templates with environment-specific values
+#   - Tests rendering for all environments
+#
+# Stage 3: PackageCharts
+#   - Packages Helm charts as artifacts
+#   - Includes deploy.sh script for easy deployment
+#
+# Deployment:
+#   - Infrastructure: Apply Terraform manually or via release pipeline
+#   - Applications: Use deploy.sh script from artifacts
+#   - Monitoring: Prometheus + Grafana (with optional Azure AD auth)
+# ============================================================================
+
 trigger:
   branches:
     include:
@@ -18,6 +43,14 @@ variables:
   terraformStateRG: 'terraform-state-rg'        # adjust if different
   terraformStateStorageAccount: 'tfstatemcda2025' # adjust if different
   terraformStateContainer: 'tfstate'            # adjust if different
+  
+  # Grafana Azure AD Authentication (Optional)
+  # To enable Microsoft Entra ID auth for Grafana, set these as pipeline variables:
+  #   1. Go to Pipeline → Edit → Variables
+  #   2. Add variable: TF_VAR_grafana_azure_ad_client_id (mark as secret)
+  #   3. Add variable: TF_VAR_grafana_azure_ad_client_secret (mark as secret)
+  # See infra/GRAFANA_AZURE_AD_SETUP.md for Azure AD app registration setup
+  # If not set, Grafana will use default admin/admin authentication
 
 stages:
 - stage: ValidateTerraform
@@ -68,6 +101,12 @@ stages:
           set -e
           echo "Initializing Terraform with backend config: $(backendConfig)"
           terraform init -input=false -backend-config="$(backendConfig)"
+
+          # Ensure lock file is included in artifact
+          echo "Copying lock file to environment directory..."
+          mkdir -p $(envName)
+          cp .terraform.lock.hcl $(envName)/.terraform.lock.hcl || echo "Warning: Lock file not found"
+          echo "✓ Lock file copied successfully"
       displayName: 'Terraform Init (env: $(envName))'
 
     - task: AzureCLI@2
@@ -91,6 +130,10 @@ stages:
         commandOptions: '-var-file="$(tfvarsFile)" -out="$(workingDirectory)/$(envName)/tfplan-$(envName)"'
         workingDirectory: '$(workingDirectory)'
       displayName: 'Terraform Plan (env: $(envName))'
+      env:
+        # Pass Azure AD credentials if set as pipeline variables (optional)
+        TF_VAR_grafana_azure_ad_client_id: $(TF_VAR_grafana_azure_ad_client_id)
+        TF_VAR_grafana_azure_ad_client_secret: $(TF_VAR_grafana_azure_ad_client_secret)
 
     # - task: AzureCLI@2
     #   name: tfPlan
@@ -118,7 +161,7 @@ stages:
       displayName: 'Publish Terraform Plan (env: $(envName))'
 
 - stage: ValidateHelmCharts
-  displayName: 'Validate Helm Charts (lint + render templates per env)'
+  displayName: 'Validate Helm Charts (application manifests)'
   dependsOn: ValidateTerraform
   condition: succeeded()
   jobs:
@@ -229,10 +272,21 @@ stages:
         echo "Packaged charts:"
         ls -lh "$(Build.ArtifactStagingDirectory)/charts"
         echo "==========================================="
-
+        
+        echo ""
         echo "==========================================="
-        echo " Adding deployment script to package "
+        echo "📦 Adding deployment script to artifacts"
+        echo "==========================================="
         cp deploy.sh "$(Build.ArtifactStagingDirectory)/charts/deploy.sh"
+        chmod +x "$(Build.ArtifactStagingDirectory)/charts/deploy.sh"
+        echo "✓ Deploy script included"
+        echo ""
+        echo "To deploy after downloading artifacts:"
+        echo "  cd helm-charts"
+        echo "  ./deploy.sh <environment> <image-tag>"
+        echo ""
+        echo "Example:"
+        echo "  ./deploy.sh dev $(imageTag)"
         echo "==========================================="
       displayName: 'Package Helm Charts (version=$(imageTag))'
       workingDirectory: '$(System.DefaultWorkingDirectory)'

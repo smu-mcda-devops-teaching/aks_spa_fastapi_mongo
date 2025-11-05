@@ -24,3 +24,20 @@ cosmos_db_serverless                    = true
 cosmos_db_enable_automatic_failover     = false
 cosmos_db_enable_multiple_write_locations = false
 cosmos_db_database_name                 = "mcda-dev-db"
+
+# Grafana Azure AD Authentication (Optional)
+# Recommended: Set these via environment variables or separate secrets.tfvars file
+# Do NOT commit secrets to Git!
+# 
+# Option 1: Environment variables (recommended)
+#   export TF_VAR_grafana_azure_ad_client_id="your-client-id"
+#   export TF_VAR_grafana_azure_ad_client_secret="your-secret"
+#
+# Option 2: Separate secrets file (add secrets.tfvars to .gitignore)
+#   Create infra/dev/secrets.tfvars with:
+#   grafana_azure_ad_client_id     = "your-client-id"
+#   grafana_azure_ad_client_secret = "your-secret"
+#   Then run: terraform apply -var-file="dev/dev.tfvars" -var-file="dev/secrets.tfvars"
+#
+# If not set, Grafana will use default admin/admin authentication
+# See GRAFANA_AZURE_AD_SETUP.md for detailed setup instructions

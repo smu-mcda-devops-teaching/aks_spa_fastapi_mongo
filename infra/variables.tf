@@ -156,3 +156,18 @@ variable "cosmos_db_database_name" {
   type        = string
   default     = "mcdadb"
 }
+
+# Grafana Azure AD Configuration
+variable "grafana_azure_ad_client_id" {
+  description = "Azure AD Application (client) ID for Grafana authentication"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "grafana_azure_ad_client_secret" {
+  description = "Azure AD Application client secret for Grafana authentication"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

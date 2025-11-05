@@ -79,3 +79,30 @@ output "key_vault_id" {
   description = "Key Vault resource ID"
   value       = azurerm_key_vault.kv.id
 }
+
+# ==============================================================================
+# Cluster Tools Outputs
+# ==============================================================================
+
+output "grafana_url" {
+  description = "Grafana dashboard URL (for LoadBalancer or port-forward instructions)"
+  value       = "Access via: kubectl port-forward svc/prometheus-grafana -n monitoring 3000:80"
+}
+
+output "grafana_auth_info" {
+  description = "Grafana authentication information"
+  value       = var.grafana_azure_ad_client_id != "" ? "Microsoft Entra ID (Azure AD) authentication enabled" : "Using default admin credentials (admin/admin)"
+}
+
+output "prometheus_url" {
+  description = "Prometheus server URL"
+  value       = "Access via: kubectl port-forward svc/prometheus-kube-prometheus-prometheus -n monitoring 9090:9090"
+}
+
+output "cluster_tools_namespaces" {
+  description = "Namespaces where cluster tools are installed"
+  value = {
+    monitoring     = "monitoring"
+    ingress_nginx  = "ingress-nginx"
+  }
+}
