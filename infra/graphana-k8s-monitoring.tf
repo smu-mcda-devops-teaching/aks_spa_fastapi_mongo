@@ -70,7 +70,7 @@ resource "helm_release" "grafana-k8s-monitoring" {
 
   set {
     name  = "clusterMetrics.opencost.opencost.exporter.defaultClusterId"
-    value = var.cluster_name
+    value = local.aks_name
   }
 
   set {
