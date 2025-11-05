@@ -25,19 +25,20 @@ cosmos_db_enable_automatic_failover     = false
 cosmos_db_enable_multiple_write_locations = false
 cosmos_db_database_name                 = "mcda-dev-db"
 
-# Grafana Azure AD Authentication (Optional)
-# Recommended: Set these via environment variables or separate secrets.tfvars file
-# Do NOT commit secrets to Git!
+# ==============================================================================
+# Optional: Grafana Authentication & Monitoring
+# ==============================================================================
 # 
-# Option 1: Environment variables (recommended)
-#   export TF_VAR_grafana_azure_ad_client_id="your-client-id"
-#   export TF_VAR_grafana_azure_ad_client_secret="your-secret"
+# 1. Grafana Azure AD Authentication (Optional)
+#    For enterprise SSO, see infra/GRAFANA_AZURE_AD_SETUP.md
+#    Set via environment variables or secrets.tfvars file
 #
-# Option 2: Separate secrets file (add secrets.tfvars to .gitignore)
-#   Create infra/dev/secrets.tfvars with:
-#   grafana_azure_ad_client_id     = "your-client-id"
-#   grafana_azure_ad_client_secret = "your-secret"
-#   Then run: terraform apply -var-file="dev/dev.tfvars" -var-file="dev/secrets.tfvars"
+# 2. Grafana Cloud Monitoring (Optional)
+#    For managed monitoring service, see infra/GRAFANA_CLOUD_SETUP.md
+#    Set via environment variables or grafana-cloud-secrets.tfvars file
 #
-# If not set, Grafana will use default admin/admin authentication
-# See GRAFANA_AZURE_AD_SETUP.md for detailed setup instructions
+# If neither is configured:
+#   - Local Grafana uses admin/admin authentication
+#   - Metrics stored locally in cluster (Prometheus)
+#
+# ==============================================================================

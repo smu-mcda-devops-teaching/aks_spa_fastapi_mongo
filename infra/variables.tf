@@ -171,3 +171,112 @@ variable "grafana_azure_ad_client_secret" {
   default     = ""
   sensitive   = true
 }
+
+# ==============================================================================
+# Grafana Cloud Monitoring Configuration (Optional)
+# ==============================================================================
+# These variables configure Grafana Cloud integration for k8s-monitoring
+# 
+# IMPORTANT: Do NOT commit these values to Git!
+# Set them via environment variables or a separate secrets.tfvars file
+#
+# To enable Grafana Cloud monitoring:
+# 1. Sign up at grafana.com/products/cloud
+# 2. Create a stack and get your credentials
+# 3. Set these variables:
+#
+#    Option 1: Environment variables (recommended)
+#      export TF_VAR_destinations_prometheus_url="https://..."
+#      export TF_VAR_destinations_prometheus_username="..."
+#      export TF_VAR_destinations_prometheus_password="..."
+#      # ... etc
+#
+#    Option 2: Separate secrets file
+#      Create infra/dev/grafana-cloud-secrets.tfvars with your values
+#      Then: terraform apply -var-file="dev/dev.tfvars" -var-file="dev/grafana-cloud-secrets.tfvars"
+#
+# ==============================================================================
+
+variable "destinations_prometheus_url" {
+  description = "Grafana Cloud Prometheus endpoint URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_prometheus_username" {
+  description = "Grafana Cloud Prometheus username (instance ID)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_prometheus_password" {
+  description = "Grafana Cloud API key for Prometheus"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_loki_url" {
+  description = "Grafana Cloud Loki endpoint URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_loki_username" {
+  description = "Grafana Cloud Loki username (user ID)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_loki_password" {
+  description = "Grafana Cloud API key for Loki"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_otlp_url" {
+  description = "Grafana Cloud OTLP endpoint URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_otlp_username" {
+  description = "Grafana Cloud OTLP username (instance ID)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "destinations_otlp_password" {
+  description = "Grafana Cloud API key for OTLP"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "fleetmanagement_url" {
+  description = "Grafana Cloud Fleet Management URL"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "fleetmanagement_username" {
+  description = "Grafana Cloud Fleet Management username (instance ID)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "fleetmanagement_password" {
+  description = "Grafana Cloud API key for Fleet Management"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

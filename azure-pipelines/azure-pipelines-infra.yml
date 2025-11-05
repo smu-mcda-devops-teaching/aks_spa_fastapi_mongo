@@ -121,44 +121,31 @@ stages:
           terraform validate
       displayName: 'Terraform Validate (env: $(envName))'
 
-    - task: TerraformTaskV4@4
-      name: tfPlan
-      inputs:
-        provider: 'azurerm'
-        command: 'plan'
-        environmentServiceNameAzureRM: '$(serviceConnection)'
-        commandOptions: '-var-file="$(tfvarsFile)" -out="$(workingDirectory)/$(envName)/tfplan-$(envName)"'
-        workingDirectory: '$(workingDirectory)'
-      displayName: 'Terraform Plan (env: $(envName))'
-      env:
-        # Pass Azure AD credentials if set as pipeline variables (optional)
-        TF_VAR_grafana_azure_ad_client_id: $(TF_VAR_grafana_azure_ad_client_id)
-        TF_VAR_grafana_azure_ad_client_secret: $(TF_VAR_grafana_azure_ad_client_secret)
-
-    # - task: AzureCLI@2
+    # - task: TerraformTaskV4@4
     #   name: tfPlan
     #   inputs:
-    #     azureSubscription: '$(serviceConnection)'
-    #     scriptType: 'bash'
-    #     scriptLocation: 'inlineScript'
-    #     workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
-    #     inlineScript: |
-    #       set -e
-    #       # Create plan directory if it doesn't exist
-    #       mkdir -p $(Build.ArtifactStagingDirectory)/$(envName)
-          
-    #       echo "Planning Terraform with vars file: $(tfvarsFile)"
-    #       terraform plan -input=false \
-    #         -var-file="$(tfvarsFile)" \
-    #         -out="$(Build.ArtifactStagingDirectory)/$(envName)/tfplan"
+    #     provider: 'azurerm'
+    #     command: 'plan'
+    #     environmentServiceNameAzureRM: '$(serviceConnection)'
+    #     commandOptions: '-var-file="$(tfvarsFile)" -out="$(workingDirectory)/$(envName)/tfplan-$(envName)"'
+    #     workingDirectory: '$(workingDirectory)'
     #   displayName: 'Terraform Plan (env: $(envName))'
+    #   env:
+    #     # Pass Azure AD credentials if set as pipeline variables (optional)
+    #     TF_VAR_grafana_azure_ad_client_id: $(TF_VAR_grafana_azure_ad_client_id)
+    #     TF_VAR_grafana_azure_ad_client_secret: $(TF_VAR_grafana_azure_ad_client_secret)
 
+  - job: TerraformConfigPublish
+    displayName: 'Publish Terraform Configuration'
+    dependsOn: TerraformValidate
+    condition: succeeded()
+    steps:
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: '$(workingDirectory)/$(envName)'
-        artifactName: 'tfplan-$(envName)'
+        targetPath: '$(workingDirectory)'
+        artifactName: 'terraform-config'
         publishLocation: 'pipeline'
-      displayName: 'Publish Terraform Plan (env: $(envName))'
+      displayName: 'Publish Terraform Configuration'
 
 - stage: ValidateHelmCharts
   displayName: 'Validate Helm Charts (application manifests)'

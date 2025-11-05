@@ -799,3 +799,6 @@ MigrationBackup/
 # Terraform secrets files
 **/secrets.tfvars
 **/*.secrets.tfvars
+
+# Grafana Cloud secrets
+**/grafana-cloud-secrets.tfvars
