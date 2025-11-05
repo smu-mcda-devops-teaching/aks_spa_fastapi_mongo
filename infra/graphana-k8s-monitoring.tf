@@ -20,7 +20,7 @@ resource "helm_release" "grafana-k8s-monitoring" {
   # Set cluster name from actual AKS resource
   set {
     name  = "cluster.name"
-    value = azurerm_kubernetes_cluster.aks.name
+    value = local.aks_name
   }
 
   set {
