@@ -72,7 +72,7 @@ stages:
         inlineScript: |
           set -e
           cd $(System.DefaultWorkingDirectory)/infra
-          terraform init -backend-config=$(envName)/backend.conf
+          terraform init -input=false -backend-config=$(envName)/backend.conf
       displayName: 'Terraform Init (env: $(envName))'
     
     # - task: AzureCLI@2
@@ -118,7 +118,7 @@ stages:
         inlineScript: |
           set -e
           cd $(System.DefaultWorkingDirectory)/infra
-          terraform plan -var-file=$(envName)/$(envName).tfvars -out=$(infraPath)/tfplan
+          terraform plan -input=false -var-file=$(envName)/$(envName).tfvars -out=$(infraPath)/tfplan
       displayName: 'Terraform Plan (env: $(envName))'
 
     - task: PublishPipelineArtifact@1
