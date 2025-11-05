@@ -1,0 +1,80 @@
+# Production Environment Values
+# Values dynamically set via --set flags from Terraform outputs:
+# - global.image.repository (ACR login server)
+# - global.image.tag (build ID)
+# - global.keyVault.name (Key Vault name)
+# - global.keyVault.tenantId (Azure AD tenant ID)
+
+global:
+  image:
+    repository: "" # Set via --set from Terraform output
+    tag: "latest" # Set via --set from build ID
+  keyVault:
+    name: "" # Set via --set from Terraform output
+    tenantId: "" # Set via --set from Terraform output
+  environment: prod
+
+# Frontend sub-chart configuration
+frontend:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: "{{ .Values.global.image.repository }}/frontend"
+    tag: "{{ .Values.global.image.tag }}"
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  # Production-specific settings
+  autoscaling:
+    enabled: false # Set to true if you configure HPA
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+# Backend sub-chart configuration
+backend:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: "{{ .Values.global.image.repository }}/backend"
+    tag: "{{ .Values.global.image.tag }}"
+  keyVault:
+    name: "{{ .Values.global.keyVault.name }}"
+    tenantId: "{{ .Values.global.keyVault.tenantId }}"
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+  # Production-specific settings
+  autoscaling:
+    enabled: false # Set to true if you configure HPA
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 75
+
+# Ingress sub-chart configuration
+ingress:
+  enabled: true
+  host: yourdomain.com # Update with your actual production domain
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  tls:
+    enabled: true
+    secretName: prod-tls
+

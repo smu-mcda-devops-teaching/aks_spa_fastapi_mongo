@@ -34,7 +34,7 @@ backend:
 # Ingress sub-chart configuration
 ingress:
   enabled: true
-  host: myapp.example.com
+  host: azurestaticwebapps.net
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
     cert-manager.io/cluster-issuer: "letsencrypt-prod" # Update with your cert-manager issuer

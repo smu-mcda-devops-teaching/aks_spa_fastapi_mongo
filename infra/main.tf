@@ -3,10 +3,10 @@ data "azurerm_client_config" "current" {}
 
 locals {
   env_suffix          = var.environment
-  resource_group_name = "mcda-${local.env_suffix}-rg"
-  aks_name            = "mcda-${local.env_suffix}-aks"
+  resource_group_name = "mcda-spa-${local.env_suffix}-rg"
+  aks_name            = "mcda-spa-${local.env_suffix}-aks"
   acr_name            = "mcda${local.env_suffix}acr" # ACR names must be globally unique, alphanumeric, lowercase
-  key_vault_name      = "mcda-${local.env_suffix}-kv"
+  key_vault_name      = "mcda-spa-${local.env_suffix}-kv"
   cosmos_db_name      = "${var.cosmos_db_account_name}${local.env_suffix}" # Cosmos DB names must be globally unique, alphanumeric, lowercase, 44 chars max
   tenant_id           = var.tenant_id != "" ? var.tenant_id : data.azurerm_client_config.current.tenant_id
 }
@@ -96,6 +96,36 @@ resource "azurerm_key_vault" "kv" {
     Environment = var.environment
     ManagedBy   = "Terraform"
   }
+}
+
+# Grant AKS managed identity access to Key Vault secrets
+resource "azurerm_key_vault_access_policy" "aks_secrets_reader" {
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id    = local.tenant_id
+  object_id    = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
+
+  secret_permissions = [
+    "Get",
+    "List"
+  ]
+
+  depends_on = [
+    azurerm_kubernetes_cluster.aks,
+    azurerm_key_vault.kv
+  ]
+}
+
+# Grant AKS kubelet identity permission to pull images from ACR
+resource "azurerm_role_assignment" "aks_acr_pull" {
+  principal_id                     = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
+  role_definition_name             = "AcrPull"
+  scope                            = azurerm_container_registry.acr.id
+  skip_service_principal_aad_check = true
+
+  depends_on = [
+    azurerm_kubernetes_cluster.aks,
+    azurerm_container_registry.acr
+  ]
 }
 
 resource "azurerm_cosmosdb_account" "cosmosdb" {

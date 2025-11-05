@@ -73,7 +73,7 @@ stages:
         azureSubscription: '$(serviceConnection)'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        workingDirectory: '$(workingDirectory)'
         inlineScript: |
           set -e
           echo "Initializing Terraform with backend config: $(backendConfig)"
@@ -86,7 +86,7 @@ stages:
         azureSubscription: '$(serviceConnection)'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        workingDirectory: '$(workingDirectory)'
         inlineScript: |
           set -e
           terraform validate
@@ -98,8 +98,9 @@ stages:
         provider: 'azurerm'
         command: 'plan'
         environmentServiceNameAzureRM: '$(serviceConnection)'
-        commandOptions: '-var-file="$(tfvarsFile)" -out="$(Build.ArtifactStagingDirectory)/$(envName)/tfplan"'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        commandOptions: '-var-file="$(tfvarsFile)" -out="$(workingDirectory)/$(envName)/tfplan-$(envName)"'
+        workingDirectory: '$(workingDirectory)'
+      displayName: 'Terraform Plan (env: $(envName))'
 
     # - task: AzureCLI@2
     #   name: tfPlan
@@ -121,7 +122,7 @@ stages:
 
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/$(envName)'
+        targetPath: '$(workingDirectory)/$(envName)'
         artifactName: 'tfplan-$(envName)'
         publishLocation: 'pipeline'
       displayName: 'Publish Terraform Plan (env: $(envName))'
@@ -152,31 +153,52 @@ stages:
 
     - script: |
         set -e
-        charts=(charts/*)
-        envs=("dev" "staging" "prod")
-        # Lint all charts
-        for c in "${charts[@]}"; do
-          if [ -d "$c" ]; then
-            helm lint "$c" || true
+        cd charts
+        
+        # Update umbrella chart dependencies
+        echo "Updating Helm dependencies..."
+        helm dependency update
+        
+        # Lint sub-charts individually
+        echo "Linting sub-charts..."
+        for subchart in backend frontend ingress; do
+          if [ -d "$subchart" ]; then
+            echo "Linting $subchart..."
+            helm lint "$subchart" || true
           fi
         done
-
-        # Render templates for each env to catch value/template errors and inject image tag
+        
+        # Lint umbrella chart
+        echo "Linting umbrella chart..."
+        helm lint . || true
+        
+        # Render templates for each environment to validate
+        envs=("dev" "stage" "prod")
         for env in "${envs[@]}"; do
-          for c in "${charts[@]}"; do
-            if [ -d "$c" ]; then
-              name=$(basename "$c")
-              vals=""
-              vf="$c/values.$env.yaml"
-              if [ -f "$vf" ]; then
-                vals="-f $vf"
-              fi
-              echo "Rendering $name for env=$env"
-              helm template "$name" "$c" $vals --set image.tag=$(imageTag)
-            fi
-          done
+          echo "==========================================="
+          echo "Rendering templates for environment: $env"
+          echo "==========================================="
+          
+          if [ -f "values.$env.yaml" ]; then
+            helm template aks-app . \
+              --values "values.$env.yaml" \
+              --set global.image.repository="dummy.azurecr.io" \
+              --set global.image.tag="$(imageTag)" \
+              --set global.keyVault.name="dummy-kv" \
+              --set global.keyVault.tenantId="00000000-0000-0000-0000-000000000000" \
+              --debug \
+              > "/tmp/rendered-$env.yaml"
+            
+            echo "✓ Successfully rendered for $env environment"
+          else
+            echo "⚠ Warning: values.$env.yaml not found, skipping"
+          fi
         done
-      displayName: 'Helm lint & template (per environment)'
+        
+        echo "==========================================="
+        echo "✓ All Helm chart validations completed"
+        echo "==========================================="
+      displayName: 'Helm lint & template validation (per environment)'
       workingDirectory: '$(System.DefaultWorkingDirectory)'
 
 - stage: PackageCharts
@@ -195,14 +217,38 @@ stages:
 
     - script: |
         set -e
+        cd charts
+        
+        # Update dependencies before packaging
+        echo "Updating Helm dependencies..."
+        helm dependency update
+        
+        # Create artifact directory
         mkdir -p "$(Build.ArtifactStagingDirectory)/charts"
-        for c in charts/*; do
-          if [ -d "$c" ]; then
-            name=$(basename "$c")
-            # package using imageTag as version to tie chart -> image
-            helm package "$c" -d "$(Build.ArtifactStagingDirectory)/charts" --version "$(imageTag)" --app-version "$(imageTag)"
+        
+        # Package the umbrella chart (this will include all sub-charts)
+        echo "Packaging umbrella chart..."
+        helm package . \
+          -d "$(Build.ArtifactStagingDirectory)/charts" \
+          --version "$(imageTag)" \
+          --app-version "$(imageTag)"
+        
+        # Optionally package sub-charts individually if needed for separate deployments
+        echo "Packaging individual sub-charts..."
+        for subchart in backend frontend ingress; do
+          if [ -d "$subchart" ]; then
+            echo "Packaging $subchart..."
+            helm package "$subchart" \
+              -d "$(Build.ArtifactStagingDirectory)/charts" \
+              --version "$(imageTag)" \
+              --app-version "$(imageTag)"
           fi
         done
+        
+        echo "==========================================="
+        echo "Packaged charts:"
+        ls -lh "$(Build.ArtifactStagingDirectory)/charts"
+        echo "==========================================="
       displayName: 'Package Helm Charts (version=$(imageTag))'
       workingDirectory: '$(System.DefaultWorkingDirectory)'
 

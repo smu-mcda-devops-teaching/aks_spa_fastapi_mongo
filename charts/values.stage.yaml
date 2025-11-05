@@ -1,0 +1,67 @@
+# Staging Environment Values
+# Values dynamically set via --set flags from Terraform outputs:
+# - global.image.repository (ACR login server)
+# - global.image.tag (build ID)
+# - global.keyVault.name (Key Vault name)
+# - global.keyVault.tenantId (Azure AD tenant ID)
+
+global:
+  image:
+    repository: "" # Set via --set from Terraform output
+    tag: "latest" # Set via --set from build ID
+  keyVault:
+    name: "" # Set via --set from Terraform output
+    tenantId: "" # Set via --set from Terraform output
+  environment: stage
+
+# Frontend sub-chart configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: "{{ .Values.global.image.repository }}/frontend"
+    tag: "{{ .Values.global.image.tag }}"
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Backend sub-chart configuration
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: "{{ .Values.global.image.repository }}/backend"
+    tag: "{{ .Values.global.image.tag }}"
+  keyVault:
+    name: "{{ .Values.global.keyVault.name }}"
+    tenantId: "{{ .Values.global.keyVault.tenantId }}"
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# Ingress sub-chart configuration
+ingress:
+  enabled: true
+  host: stage.azurestaticwebapps.net
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+  tls:
+    enabled: true
+    secretName: stage-tls
+

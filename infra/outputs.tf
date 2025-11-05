@@ -59,3 +59,23 @@ output "cosmos_db_mongo_database_name" {
   description = "Cosmos DB MongoDB database name"
   value       = azurerm_cosmosdb_mongo_database.cosmosdb_mongo.name
 }
+
+output "tenant_id" {
+  description = "Azure AD Tenant ID"
+  value       = local.tenant_id
+}
+
+output "aks_identity_principal_id" {
+  description = "AKS managed identity principal ID (for KeyVault access)"
+  value       = azurerm_kubernetes_cluster.aks.identity[0].principal_id
+}
+
+output "aks_kubelet_identity_object_id" {
+  description = "AKS kubelet managed identity object ID (for KeyVault and ACR access)"
+  value       = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
+}
+
+output "key_vault_id" {
+  description = "Key Vault resource ID"
+  value       = azurerm_key_vault.kv.id
+}
