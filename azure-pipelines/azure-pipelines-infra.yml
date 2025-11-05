@@ -118,7 +118,7 @@ stages:
         inlineScript: |
           set -e
           cd "$(infraPath)"
-          terraform plan -var-file=$(envName)/$(envName).tfvars -out=$(infraPath)/tfplan
+          terraform plan -var-file=$(envName).tfvars -out=tfplan
       displayName: 'Terraform Plan (env: $(envName))'
 
     - task: PublishPipelineArtifact@1
