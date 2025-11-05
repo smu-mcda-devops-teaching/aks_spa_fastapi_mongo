@@ -46,7 +46,7 @@ stages:
         buildType: 'specific'
         project: ''   # optional project id/name if cross-project; leave empty to use current
         buildId: '$(buildId)'
-        artifactName: 'terraform-plan-dev'
+        artifactName: 'tfplan-dev'
         targetPath: '$(System.DefaultWorkingDirectory)/infra/dev/'
     - task: TerraformTaskV4@4
       inputs:
@@ -141,7 +141,7 @@ stages:
       inputs:
         buildType: 'specific'
         buildId: '$(buildId)'
-        artifactName: 'terraform-plan-staging'
+        artifactName: 'tfplan-staging'
         targetPath: '$(System.DefaultWorkingDirectory)/infra/staging/'
     - task: TerraformTaskV4@4
       inputs:
@@ -227,7 +227,7 @@ stages:
       inputs:
         buildType: 'specific'
         buildId: '$(buildId)'
-        artifactName: 'terraform-plan-prod'
+        artifactName: 'tfplan-prod'
         targetPath: '$(System.DefaultWorkingDirectory)/infra/prod/'
     - task: TerraformTaskV4@4
       inputs:

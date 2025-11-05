@@ -6,6 +6,7 @@ trigger:
     include:
       - infra/*
       - charts/*
+      - azure-pipelines/azure-pipelines-infra.yml
 
 variables:
   # Use a specific version (recommended) or 'latest' to pick newest available in installer task.
@@ -62,14 +63,16 @@ stages:
           az account show
       displayName: 'Azure Login'
 
-    - task: TerraformTaskV4@4
+    - task: AzureCLI@2
       name: tfInit
       inputs:
-        provider: 'azurerm'
-        command: 'init'
-        commandOptions: '-backend-config=backend.conf'
-        workingDirectory: '$(infraPath)'
-        backendServiceArm: '$(serviceConnection)'
+        azureSubscription: '$(serviceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -e
+          cd "$(infraPath)"
+          terraform init -backend-config=backend.conf
       displayName: 'Terraform Init (env: $(envName))'
     
     # - task: AzureCLI@2
@@ -106,22 +109,23 @@ stages:
       displayName: 'Terraform Validate (env: $(envName))'
 
     # Run 'plan' and write plan file into the infraPath to publish as artifact for per-env apply later.
-    - task: TerraformTaskV4@4
+    - task: AzureCLI@2
       name: tfPlan
       inputs:
-        provider: 'azurerm'
-        command: 'plan -var-file=$(envName)/$(envName).tfvars'
-        workingDirectory: '$(infraPath)'
-        environmentServiceNameAzureRM: '$(serviceConnection)'
-        commandOptions: '-out=$(infraPath)/tfplan'
+        azureSubscription: '$(serviceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -e
+          cd "$(infraPath)"
+          terraform plan -var-file=$(envName)/$(envName).tfvars -out=$(infraPath)/tfplan
       displayName: 'Terraform Plan (env: $(envName))'
 
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: '$(infraPath)'
-        artifactName: 'terraform-plan-$(envName)'
+        targetPath: '$(infraPath)/tfplan'
+        artifactName: 'tfplan-$(envName)'
         publishLocation: 'pipeline'
-        patterns: 'tfplan'
       displayName: 'Publish Terraform Plan (env: $(envName))'
 
 - stage: ValidateHelmCharts
