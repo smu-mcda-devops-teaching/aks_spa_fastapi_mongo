@@ -10,7 +10,7 @@ trigger:
 
 variables:
   # Use a specific version (recommended) or 'latest' to pick newest available in installer task.
-  terraformVersion: 'latest' 
+  terraformVersion: '1.13.4' 
   workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
   serviceConnection: 'Azure ARM' # Replace with your Azure service connection name
   imageTag: '$(Build.BuildId)'   # CI build artifact tag - avoid "latest"
