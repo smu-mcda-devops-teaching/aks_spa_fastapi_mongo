@@ -71,6 +71,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           set -e
+          cd $(System.DefaultWorkingDirectory)/infra
           terraform init -backend-config=$(infraPath)/backend.conf
       displayName: 'Terraform Init (env: $(envName))'
     
@@ -116,6 +117,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           set -e
+          cd $(System.DefaultWorkingDirectory)/infra
           terraform plan -var-file=$(infraPath)/$(envName).tfvars -out=$(infraPath)/tfplan
       displayName: 'Terraform Plan (env: $(envName))'
 
