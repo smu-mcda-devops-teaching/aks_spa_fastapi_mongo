@@ -13,6 +13,11 @@ output "aks_cluster_name" {
   value       = azurerm_kubernetes_cluster.aks.name
 }
 
+output "aks_resource_group" {
+  description = "The resource group of the AKS cluster"
+  value = azurerm_resource_group.rg
+}
+
 output "kube_config" {
   description = "Kubernetes configuration file"
   value       = azurerm_kubernetes_cluster.aks.kube_config_raw
@@ -46,7 +51,7 @@ output "cosmos_db_account_name" {
 
 output "cosmos_db_connection_strings" {
   description = "Cosmos DB connection strings"
-  value       = azurerm_cosmosdb_account.cosmosdb.connection_strings
+  value       = azurerm_cosmosdb_account.cosmosdb.primary_mongodb_connection_string
   sensitive   = true
 }
 
