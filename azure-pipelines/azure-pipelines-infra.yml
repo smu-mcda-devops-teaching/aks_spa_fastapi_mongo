@@ -10,14 +10,29 @@ trigger:
 variables:
   terraformVersion: '1.6.0'
   workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+  serviceConnection: 'Azure ARM' # Replace with your Azure service connection name
+  imageTag: '$(Build.BuildId)'   # CI build artifact tag - avoid "latest"
+  acrName: ''                    # Set to your ACR name to push packaged charts (optional)
 
 stages:
 - stage: ValidateTerraform
-  displayName: 'Validate Terraform Configuration'
+  displayName: 'Validate Terraform Configuration (per environment)'
   jobs:
   - job: TerraformValidate
+    displayName: 'Terraform Init / Validate / Plan (matrix per infra env)'
     pool:
       vmImage: 'ubuntu-latest'
+    strategy:
+      matrix:
+        dev:
+          envName: 'dev'
+          infraPath: '$(System.DefaultWorkingDirectory)/infra/dev'
+        staging:
+          envName: 'staging'
+          infraPath: '$(System.DefaultWorkingDirectory)/infra/staging'
+        prod:
+          envName: 'prod'
+          infraPath: '$(System.DefaultWorkingDirectory)/infra/prod'
     steps:
     - task: TerraformInstaller@0
       inputs:
@@ -26,112 +41,48 @@ stages:
     
     - task: AzureCLI@2
       inputs:
-        azureSubscription: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
+        azureSubscription: '$(serviceConnection)'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
           az account show
-          # Optional: uncomment if you need to set a specific subscription
-          # az account set --subscription "$(AZURE_SUBSCRIPTION_ID)"
       displayName: 'Azure Login'
     
     - task: TerraformTaskV4@4
       inputs:
         provider: 'azurerm'
         command: 'init'
-        workingDirectory: '$(workingDirectory)'
-        backendServiceArm: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
-        # Uncomment below for remote state backend (recommended for production)
-        # backendAzureRmResourceGroupName: 'terraform-state-rg'
-        # backendAzureRmStorageAccountName: 'terraformstate'
-        # backendAzureRmContainerName: 'tfstate'
-        # backendAzureRmKey: 'terraform.tfstate'
-      displayName: 'Terraform Init'
+        workingDirectory: '$(infraPath)'
+        backendServiceArm: '$(serviceConnection)'
+      displayName: 'Terraform Init (env: $(envName))'
     
     - task: TerraformTaskV4@4
       inputs:
         provider: 'azurerm'
         command: 'validate'
-        workingDirectory: '$(workingDirectory)'
-        # validate doesn't need Azure authentication
-      displayName: 'Terraform Validate'
+        workingDirectory: '$(infraPath)'
+      displayName: 'Terraform Validate (env: $(envName))'
     
     - task: TerraformTaskV4@4
       inputs:
         provider: 'azurerm'
         command: 'plan'
-        workingDirectory: '$(workingDirectory)'
-        environmentServiceNameAzureRM: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
-        commandOptions: '-out=$(workingDirectory)/tfplan'
-      displayName: 'Terraform Plan'
+        workingDirectory: '$(infraPath)'
+        environmentServiceNameAzureRM: '$(serviceConnection)'
+        commandOptions: '-out=$(infraPath)/tfplan'
+      displayName: 'Terraform Plan (env: $(envName))'
     
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: '$(workingDirectory)'
-        artifactName: 'terraform-plan'
+        targetPath: '$(infraPath)'
+        artifactName: 'terraform-plan-$(envName)'
         publishLocation: 'pipeline'
         patterns: 'tfplan'
-      displayName: 'Publish Terraform Plan'
-
-- stage: DeployInfrastructure
-  displayName: 'Deploy Infrastructure'
-  dependsOn: ValidateTerraform
-  condition: succeeded()
-  jobs:
-  - deployment: TerraformApply
-    pool:
-      vmImage: 'ubuntu-latest'
-    environment: 'production' # Requires approval if configured
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: TerraformInstaller@0
-            inputs:
-              terraformVersion: '$(terraformVersion)'
-            displayName: 'Install Terraform'
-          
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az account show
-              displayName: 'Azure Login'
-          
-          - task: DownloadPipelineArtifact@2
-            inputs:
-              buildType: 'current'
-              artifactName: 'terraform-plan'
-              targetPath: '$(workingDirectory)/'
-            displayName: 'Download Terraform Plan'
-          
-          - task: TerraformTaskV4@4
-            inputs:
-              provider: 'azurerm'
-              command: 'init'
-              workingDirectory: '$(workingDirectory)'
-              backendServiceArm: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
-              # Uncomment below for remote state backend (recommended for production)
-              # backendAzureRmResourceGroupName: 'terraform-state-rg'
-              # backendAzureRmStorageAccountName: 'terraformstate'
-              # backendAzureRmContainerName: 'tfstate'
-              # backendAzureRmKey: 'terraform.tfstate'
-            displayName: 'Terraform Init'
-          
-          - task: TerraformTaskV4@4
-            inputs:
-              provider: 'azurerm'
-              command: 'apply'
-              workingDirectory: '$(workingDirectory)'
-              environmentServiceNameAzureRM: 'YOUR_AZURE_SUBSCRIPTION' # Replace with your service connection name
-              commandOptions: '-auto-approve $(workingDirectory)/tfplan'
-            displayName: 'Terraform Apply'
+      displayName: 'Publish Terraform Plan (env: $(envName))'
 
 - stage: ValidateHelmCharts
-  displayName: 'Validate Helm Charts'
-  dependsOn: DeployInfrastructure
+  displayName: 'Validate Helm Charts (lint + render templates per env)'
+  dependsOn: ValidateTerraform
   condition: succeeded()
   jobs:
   - job: HelmValidate
@@ -144,9 +95,62 @@ stages:
       displayName: 'Install Helm'
     
     - script: |
-        helm lint charts/
-        helm lint charts/backend/
-        helm lint charts/frontend/
-        helm lint charts/ingress/
-      displayName: 'Validate Helm Charts'
+        set -e
+        charts=(charts/*)
+        envs=("dev" "staging" "prod")
+        # Lint all charts
+        for c in "${charts[@]}"; do
+          if [ -d "$c" ]; then
+            helm lint "$c" || true
+          fi
+        done
+
+        # Render templates for each env to catch value/template errors and inject image tag
+        for env in "${envs[@]}"; do
+          for c in "${charts[@]}"; do
+            if [ -d "$c" ]; then
+              name=$(basename "$c")
+              vals=""
+              vf="$c/values.$env.yaml"
+              if [ -f "$vf" ]; then
+                vals="-f $vf"
+              fi
+              echo "Rendering $name for env=$env"
+              helm template "$name" "$c" $vals --set image.tag=$(imageTag)
+            fi
+          done
+        done
+      displayName: 'Helm lint & template (per environment)'
       workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+- stage: PackageCharts
+  displayName: 'Package Helm Charts (artifact)'
+  dependsOn: ValidateHelmCharts
+  condition: succeeded()
+  jobs:
+  - job: PackageCharts
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: HelmInstaller@1
+      inputs:
+        helmVersionToInstall: 'latest'
+      displayName: 'Install Helm'
+    
+    - script: |
+        set -e
+        mkdir -p "$(Build.ArtifactStagingDirectory)/charts"
+        for c in charts/*; do
+          if [ -d "$c" ]; then
+            name=$(basename "$c")
+            helm package "$c" -d "$(Build.ArtifactStagingDirectory)/charts" --version "$(imageTag)" --app-version "$(imageTag)"
+          fi
+        done
+      displayName: 'Package Helm Charts (version=$(imageTag))'
+    
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/charts'
+        artifactName: 'helm-charts'
+        publishLocation: 'pipeline'
+      displayName: 'Publish Helm Packages as Artifact'

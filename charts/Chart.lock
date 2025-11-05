@@ -1,0 +1,12 @@
+dependencies:
+- name: frontend
+  repository: file://./frontend
+  version: 0.1.0
+- name: backend
+  repository: file://./backend
+  version: 0.1.0
+- name: ingress
+  repository: file://./ingress
+  version: 0.1.0
+digest: sha256:917a24c3da0539bb19bbc3e3b1843fc1ce75141b1d8c500bbd2892ef836fdc4b
+generated: "2025-11-04T20:11:15.626498-04:00"

@@ -7,7 +7,7 @@ stages:
     steps:
     - task: AzureCLI@2
       inputs:
-        azureSubscription: 'MyServiceConnection'
+        azureSubscription: 'Azure ARM'
         scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |

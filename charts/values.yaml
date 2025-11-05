@@ -4,10 +4,40 @@ global:
     tag: latest
   keyVault:
     name: mykeyvaultaks
-    tenantId: <tenant-id>
+    tenantId: "" # Will be auto-detected from Azure provider
+
+# Frontend sub-chart configuration
 frontend:
+  enabled: true
   replicaCount: 2
+  image:
+    repository: "{{ .Values.global.image.repository }}/frontend"
+    tag: "{{ .Values.global.image.tag }}"
+  service:
+    type: ClusterIP
+    port: 80
+
+# Backend sub-chart configuration
 backend:
+  enabled: true
   replicaCount: 2
+  image:
+    repository: "{{ .Values.global.image.repository }}/backend"
+    tag: "{{ .Values.global.image.tag }}"
+  keyVault:
+    name: "{{ .Values.global.keyVault.name }}"
+    tenantId: "{{ .Values.global.keyVault.tenantId }}"
+  service:
+    type: ClusterIP
+    port: 8000
+
+# Ingress sub-chart configuration
 ingress:
+  enabled: true
   host: myapp.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod" # Update with your cert-manager issuer
+  tls:
+    enabled: true
+    secretName: myapp-tls

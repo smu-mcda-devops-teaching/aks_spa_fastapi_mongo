@@ -1,13 +1,20 @@
 apiVersion: v2
 name: aks-app
+description: Umbrella chart for AKS application deployment
 version: 0.1.0
+appVersion: "1.0"
+type: application
+
 dependencies:
   - name: frontend
     version: 0.1.0
-    repository: "file://charts/frontend"
+    repository: "file://./frontend"
+    condition: frontend.enabled
   - name: backend
     version: 0.1.0
-    repository: "file://charts/backend"
+    repository: "file://./backend"
+    condition: backend.enabled
   - name: ingress
     version: 0.1.0
-    repository: "file://charts/ingress"
+    repository: "file://./ingress"
+    condition: ingress.enabled

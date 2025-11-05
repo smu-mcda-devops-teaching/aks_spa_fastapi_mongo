@@ -7,8 +7,12 @@ terraform {
   }
 
   required_version = ">= 1.1.0"
-}
 
-provider "azurerm" {
-  features {}
+  # Backend configuration is provided via backend config files:
+  # terraform init -backend-config=dev/backend.conf
+  # terraform init -backend-config=stage/backend.conf
+  # terraform init -backend-config=prod/backend.conf
+  backend "azurerm" {
+    # Values come from backend config files in environment folders
+  }
 }

@@ -1,7 +1,16 @@
 replicaCount: 2
+
 image:
   repository: myacr.azurecr.io/backend
   tag: latest
+
 keyVault:
   name: mykeyvaultaks
-  tenantId: "<tenant-id>"
+  tenantId: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# These values can be overridden from the umbrella chart
+# Global values are accessed via .Values.global in templates

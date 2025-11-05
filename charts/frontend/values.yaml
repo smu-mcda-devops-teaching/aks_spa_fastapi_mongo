@@ -1,7 +1,12 @@
 replicaCount: 2
+
 image:
   repository: myacr.azurecr.io/frontend
   tag: latest
+
 service:
   type: ClusterIP
   port: 80
+
+# These values can be overridden from the umbrella chart
+# Global values are accessed via .Values.global in templates

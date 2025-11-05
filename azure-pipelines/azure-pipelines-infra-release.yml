@@ -1,0 +1,268 @@
+# Release pipeline: apply terraform plans per environment and deploy helm charts.
+# Trigger: manual or pipeline resource (set up a pipeline resource if you want automatic triggering).
+parameters:
+  - name: buildId
+    type: string
+    default: ''   # required: set to the CI build id that produced artifacts
+  - name: imageTag
+    type: string
+    default: ''   # required: image tag produced by CI
+  - name: serviceConnection
+    type: string
+    default: 'Azure ARM'
+  - name: acrName
+    type: string
+    default: ''   # optional ACR name if you want to push charts
+
+variables:
+  terraformVersion: '1.6.0'
+  imageTag: ${{ parameters.imageTag }}
+  buildId: ${{ parameters.buildId }}
+
+stages:
+- stage: DeployPerEnv
+  displayName: 'Terraform Apply + Helm Deploy (per environment)'
+  jobs:
+  - job: DeployDev
+    displayName: 'Deploy dev'
+    pool:
+      vmImage: 'ubuntu-latest'
+    variables:
+      envName: 'dev'
+      infraPath: '$(System.DefaultWorkingDirectory)/infra/dev'
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: '$(terraformVersion)'
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '${{ parameters.serviceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account show
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        project: ''   # optional project id/name if cross-project; leave empty to use current
+        buildId: '$(buildId)'
+        artifactName: 'terraform-plan-dev'
+        targetPath: '$(System.DefaultWorkingDirectory)/infra/dev/'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(infraPath)'
+        backendServiceArm: '${{ parameters.serviceConnection }}'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(infraPath)'
+        environmentServiceNameAzureRM: '${{ parameters.serviceConnection }}'
+        commandOptions: '-auto-approve $(infraPath)/tfplan'
+    - script: |
+        set -e
+        cd "$(infraPath)"
+        # Read terraform outputs for AKS cluster name and resource group.
+        # UPDATE THESE OUTPUT NAMES IF YOUR TERRAFORM USES DIFFERENT NAMES.
+        CLUSTER_NAME=$(terraform output -raw aks_cluster_name || true)
+        RESOURCE_GROUP=$(terraform output -raw aks_resource_group || true)
+        if [ -n "$CLUSTER_NAME" ] && [ -n "$RESOURCE_GROUP" ]; then
+          az aks get-credentials --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP" --overwrite-existing
+        else
+          echo "Terraform outputs 'aks_cluster_name' or 'aks_resource_group' not found. Skipping AKS kubeconfig step."
+        fi
+      displayName: 'Get AKS credentials (if terraform outputs exist)'
+
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        buildId: '$(buildId)'
+        artifactName: 'helm-charts'
+        targetPath: '$(System.DefaultWorkingDirectory)/helm-charts'
+    - script: |
+        set -e
+        charts_dir="$(System.DefaultWorkingDirectory)/helm-charts"
+        env="dev"
+        # optionally push charts to ACR
+        if [ -n '${{ parameters.acrName }}' ]; then
+          loginServer=$(az acr show --name '${{ parameters.acrName }}' --query "loginServer" -o tsv)
+          az acr login --name '${{ parameters.acrName }}'
+          for pkg in "$charts_dir"/*.tgz; do
+            [ -f "$pkg" ] || continue
+            echo "Pushing $pkg to oci://$loginServer/helm"
+            helm push "$pkg" "oci://$loginServer/helm"
+          done
+        fi
+
+        # Deploy each packaged chart using local package and override image tag and env values file if present in repo
+        for pkg in "$charts_dir"/*.tgz; do
+          [ -f "$pkg" ] || continue
+          base=$(basename "$pkg" .tgz)
+          chartName="${base%%-*}"  # assumes package name format chartname-version.tgz
+          # find chart values file in source repo if exists
+          vals=""
+          if [ -f "charts/$chartName/values.$env.yaml" ]; then
+            vals="-f charts/$chartName/values.$env.yaml"
+          fi
+          echo "helm upgrade --install $chartName $pkg $vals --set image.tag=${{ parameters.imageTag }} --namespace $env --create-namespace"
+          helm upgrade --install "$chartName" "$pkg" $vals --set image.tag=${{ parameters.imageTag }} --namespace "$env" --create-namespace
+        done
+      displayName: 'Push (optional) & Deploy Helm charts to AKS (dev)'
+
+  - job: DeployStaging
+    displayName: 'Deploy staging'
+    pool:
+      vmImage: 'ubuntu-latest'
+    variables:
+      envName: 'staging'
+      infraPath: '$(System.DefaultWorkingDirectory)/infra/staging'
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: '$(terraformVersion)'
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '${{ parameters.serviceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account show
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        buildId: '$(buildId)'
+        artifactName: 'terraform-plan-staging'
+        targetPath: '$(System.DefaultWorkingDirectory)/infra/staging/'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(infraPath)'
+        backendServiceArm: '${{ parameters.serviceConnection }}'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(infraPath)'
+        environmentServiceNameAzureRM: '${{ parameters.serviceConnection }}'
+        commandOptions: '-auto-approve $(infraPath)/tfplan'
+    - script: |
+        set -e
+        cd "$(infraPath)"
+        CLUSTER_NAME=$(terraform output -raw aks_cluster_name || true)
+        RESOURCE_GROUP=$(terraform output -raw aks_resource_group || true)
+        if [ -n "$CLUSTER_NAME" ] && [ -n "$RESOURCE_GROUP" ]; then
+          az aks get-credentials --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP" --overwrite-existing
+        else
+          echo "Terraform outputs 'aks_cluster_name' or 'aks_resource_group' not found. Skipping AKS kubeconfig step."
+        fi
+      displayName: 'Get AKS credentials (if terraform outputs exist)'
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        buildId: '$(buildId)'
+        artifactName: 'helm-charts'
+        targetPath: '$(System.DefaultWorkingDirectory)/helm-charts'
+    - script: |
+        set -e
+        charts_dir="$(System.DefaultWorkingDirectory)/helm-charts"
+        env="staging"
+        if [ -n '${{ parameters.acrName }}' ]; then
+          loginServer=$(az acr show --name '${{ parameters.acrName }}' --query "loginServer" -o tsv)
+          az acr login --name '${{ parameters.acrName }}'
+          for pkg in "$charts_dir"/*.tgz; do
+            [ -f "$pkg" ] || continue
+            helm push "$pkg" "oci://$loginServer/helm"
+          done
+        fi
+        for pkg in "$charts_dir"/*.tgz; do
+          [ -f "$pkg" ] || continue
+          base=$(basename "$pkg" .tgz)
+          chartName="${base%%-*}"
+          vals=""
+          if [ -f "charts/$chartName/values.$env.yaml" ]; then
+            vals="-f charts/$chartName/values.$env.yaml"
+          fi
+          helm upgrade --install "$chartName" "$pkg" $vals --set image.tag=${{ parameters.imageTag }} --namespace "$env" --create-namespace
+        done
+      displayName: 'Push (optional) & Deploy Helm charts to AKS (staging)'
+
+  - job: DeployProd
+    displayName: 'Deploy prod'
+    pool:
+      vmImage: 'ubuntu-latest'
+    variables:
+      envName: 'prod'
+      infraPath: '$(System.DefaultWorkingDirectory)/infra/prod'
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: '$(terraformVersion)'
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '${{ parameters.serviceConnection }}'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account show
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        buildId: '$(buildId)'
+        artifactName: 'terraform-plan-prod'
+        targetPath: '$(System.DefaultWorkingDirectory)/infra/prod/'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(infraPath)'
+        backendServiceArm: '${{ parameters.serviceConnection }}'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(infraPath)'
+        environmentServiceNameAzureRM: '${{ parameters.serviceConnection }}'
+        commandOptions: '-auto-approve $(infraPath)/tfplan'
+    - script: |
+        set -e
+        cd "$(infraPath)"
+        CLUSTER_NAME=$(terraform output -raw aks_cluster_name || true)
+        RESOURCE_GROUP=$(terraform output -raw aks_resource_group || true)
+        if [ -n "$CLUSTER_NAME" ] && [ -n "$RESOURCE_GROUP" ]; then
+          az aks get-credentials --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP" --overwrite-existing
+        else
+          echo "Terraform outputs 'aks_cluster_name' or 'aks_resource_group' not found. Skipping AKS kubeconfig step."
+        fi
+      displayName: 'Get AKS credentials (if terraform outputs exist)'
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        buildId: '$(buildId)'
+        artifactName: 'helm-charts'
+        targetPath: '$(System.DefaultWorkingDirectory)/helm-charts'
+    - script: |
+        set -e
+        charts_dir="$(System.DefaultWorkingDirectory)/helm-charts"
+        env="prod"
+        if [ -n '${{ parameters.acrName }}' ]; then
+          loginServer=$(az acr show --name '${{ parameters.acrName }}' --query "loginServer" -o tsv)
+          az acr login --name '${{ parameters.acrName }}'
+          for pkg in "$charts_dir"/*.tgz; do
+            [ -f "$pkg" ] || continue
+            helm push "$pkg" "oci://$loginServer/helm"
+          done
+        fi
+        for pkg in "$charts_dir"/*.tgz; do
+          [ -f "$pkg" ] || continue
+          base=$(basename "$pkg" .tgz)
+          chartName="${base%%-*}"
+          vals=""
+          if [ -f "charts/$chartName/values.$env.yaml" ]; then
+            vals="-f charts/$chartName/values.$env.yaml"
+          fi
+          helm upgrade --install "$chartName" "$pkg" $vals --set image.tag=${{ parameters.imageTag }} --namespace "$env" --create-namespace
+        done
+      displayName: 'Push (optional) & Deploy Helm charts to AKS (prod)'
