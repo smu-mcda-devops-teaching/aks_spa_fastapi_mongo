@@ -23,8 +23,8 @@ resource "helm_release" "prometheus" {
       # Prometheus Configuration
       prometheus = {
         prometheusSpec = {
-          retention    = var.environment == "prod" ? "30d" : "7d"
-          replicas     = var.environment == "prod" ? 2 : 1
+          retention = var.environment == "prod" ? "30d" : "7d"
+          replicas  = var.environment == "prod" ? 2 : 1
           resources = {
             requests = {
               cpu    = var.environment == "prod" ? "500m" : "200m"
@@ -51,7 +51,7 @@ resource "helm_release" "prometheus" {
           serviceMonitorSelectorNilUsesHelmValues = false
         }
       }
-      
+
       # Grafana Configuration
       grafana = {
         enabled       = true
@@ -122,7 +122,7 @@ resource "helm_release" "prometheus" {
           }
         }
       }
-      
+
       # Alert Manager Configuration
       alertmanager = {
         enabled = true
@@ -130,12 +130,12 @@ resource "helm_release" "prometheus" {
           replicas = var.environment == "prod" ? 2 : 1
         }
       }
-      
+
       # Node Exporter
       nodeExporter = {
         enabled = true
       }
-      
+
       # Kube State Metrics
       kubeStateMetrics = {
         enabled = true

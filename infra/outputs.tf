@@ -15,7 +15,7 @@ output "aks_cluster_name" {
 
 output "aks_resource_group" {
   description = "The resource group of the AKS cluster"
-  value = azurerm_resource_group.rg
+  value       = azurerm_resource_group.rg
 }
 
 output "kube_config" {
@@ -92,6 +92,7 @@ output "grafana_url" {
 output "grafana_auth_info" {
   description = "Grafana authentication information"
   value       = var.grafana_azure_ad_client_id != "" ? "Microsoft Entra ID (Azure AD) authentication enabled" : "Using default admin credentials (admin/admin)"
+  sensitive   = true
 }
 
 output "prometheus_url" {
@@ -102,7 +103,7 @@ output "prometheus_url" {
 output "cluster_tools_namespaces" {
   description = "Namespaces where cluster tools are installed"
   value = {
-    monitoring     = "monitoring"
-    ingress_nginx  = "ingress-nginx"
+    monitoring    = "monitoring"
+    ingress_nginx = "ingress-nginx"
   }
 }
