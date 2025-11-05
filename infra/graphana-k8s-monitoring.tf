@@ -9,8 +9,8 @@ resource "helm_release" "grafana-k8s-monitoring" {
   name             = "grafana-k8s-monitoring"
   repository       = "https://grafana.github.io/helm-charts"
   chart            = "k8s-monitoring"
-  namespace        = "monitoring"  # Deploy to same namespace as Prometheus
-  create_namespace = false  # Already created by prometheus
+  namespace        = "monitoring" # Deploy to same namespace as Prometheus
+  create_namespace = false        # Already created by prometheus
   atomic           = true
   timeout          = 300
 
@@ -141,6 +141,6 @@ resource "helm_release" "grafana-k8s-monitoring" {
   # Ensure AKS cluster and monitoring namespace exist first
   depends_on = [
     azurerm_kubernetes_cluster.aks,
-    helm_release.prometheus  # Ensures monitoring namespace exists
+    helm_release.prometheus # Ensures monitoring namespace exists
   ]
 }

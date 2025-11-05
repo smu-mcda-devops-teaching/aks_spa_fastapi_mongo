@@ -280,9 +280,3 @@ variable "fleetmanagement_password" {
   default     = ""
   sensitive   = true
 }
-
-variable "cluster_name" {
-  description = "AKS Cluster Name"
-  type = string
-  default = local.aks_name
-}
