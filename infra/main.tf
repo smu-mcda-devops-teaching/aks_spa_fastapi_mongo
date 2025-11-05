@@ -62,13 +62,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
     vm_size              = var.aks_vm_size
     auto_scaling_enabled = var.enable_aks_auto_scaling
 
-    dynamic "auto_scaling" {
-      for_each = var.enable_aks_auto_scaling ? [1] : []
-      content {
-        min_count = var.aks_min_count
-        max_count = var.aks_max_count
-      }
-    }
+    min_count = var.enable_aks_auto_scaling ? var.aks_min_count : null
+    max_count = var.enable_aks_auto_scaling ? var.aks_max_count : null
   }
 
   identity {
@@ -135,15 +130,20 @@ resource "azurerm_cosmosdb_account" "cosmosdb" {
   }
 }
 
+data "azurerm_cosmosdb_account" "cosmos-account" {
+  name                = var.cosmos_db_account_name
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
 resource "azurerm_cosmosdb_mongo_database" "cosmosdb_mongo" {
   name                = var.cosmos_db_database_name
-  resource_group_name = azurerm_resource_group.rg.name
-  account_name        = azurerm_cosmosdb_account.cosmosdb.name
+  resource_group_name = data.azurerm_cosmosdb_account.cosmos-account.resource_group_name
+  account_name        = data.azurerm_cosmosdb_account.cosmos-account.name
 }
 
 resource "azurerm_key_vault_secret" "mongo_uri" {
   name         = "MongoUri"
-  value        = azurerm_cosmosdb_account.cosmosdb.connection_strings[0]
+  value        = azurerm_cosmosdb_mongo_database.cosmosdb_mongo.primary_mongodb_connection_string
   key_vault_id = azurerm_key_vault.kv.id
 
   depends_on = [azurerm_cosmosdb_account.cosmosdb]
