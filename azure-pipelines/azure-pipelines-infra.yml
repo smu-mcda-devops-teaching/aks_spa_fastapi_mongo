@@ -8,11 +8,15 @@ trigger:
       - charts/*
 
 variables:
-  terraformVersion: '1.6.0'
+  # Use a specific version (recommended) or 'latest' to pick newest available in installer task.
+  terraformVersion: 'latest' 
   workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
   serviceConnection: 'Azure ARM' # Replace with your Azure service connection name
   imageTag: '$(Build.BuildId)'   # CI build artifact tag - avoid "latest"
   acrName: ''                    # Set to your ACR name to push packaged charts (optional)
+  terraformStateRG: 'terraform-state-rg'        # adjust if different
+  terraformStateStorageAccount: 'tfstatemcda2025' # adjust if different
+  terraformStateContainer: 'tfstate'            # adjust if different
 
 stages:
 - stage: ValidateTerraform
@@ -38,7 +42,27 @@ stages:
       inputs:
         terraformVersion: '$(terraformVersion)'
       displayName: 'Install Terraform'
-    
+
+    # Cache .terraform (plugin/provider) per infra folder to speed repeated pipeline runs.
+    - task: Cache@2
+      displayName: 'Cache Terraform .terraform directory'
+      inputs:
+        key: 'terraform | $(Agent.OS) | $(envName) | **/*.tf* **/versions.tf'
+        path: '$(infraPath)/.terraform'
+        restoreKeys: |
+          terraform | $(Agent.OS) | $(envName)
+      condition: succeededOrFailed()
+
+    # Optional: cache provider plugin cache under user's terraform plugin cache if you use plugin caching dir
+    - task: Cache@2
+      displayName: 'Cache Terraform plugin cache (~/.terraform.d/plugin-cache)'
+      inputs:
+        key: 'terraform-plugins | $(Agent.OS) | $(envName) | $(Build.SourceVersion)'
+        path: '$(HOME)/.terraform.d/plugin-cache'
+        restoreKeys: |
+          terraform-plugins | $(Agent.OS) | $(envName)
+      condition: succeededOrFailed()
+
     - task: AzureCLI@2
       inputs:
         azureSubscription: '$(serviceConnection)'
@@ -47,43 +71,51 @@ stages:
         inlineScript: |
           az account show
       displayName: 'Azure Login'
-    
-    - task: TerraformTaskV4@4
+
+    - task: AzureCLI@2
+      name: tfInit
       inputs:
-        provider: 'azurerm'
-        command: 'init'
-        workingDirectory: '$(infraPath)'
-        backendServiceArm: '$(serviceConnection)'
-        backendAzureRmResourceGroupName: 'terraform-state-rg'
-        backendAzureRmStorageAccountName: 'tfstatemcda2025'
-        backendAzureRmContainerName: 'tfstate'
-        backendAzureRmKey: '$(envName)/terraform.tfstate'
-      displayName: 'Terraform Init (env: $(envName))'
-    
+        azureSubscription: '$(serviceConnection)'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          set -e
+          cd "$(infraPath)"
+          # prefer backend.conf in env folder
+          if [ -f "backend.conf" ]; then
+            echo "Found backend.conf in $(infraPath) — running terraform init with backend-config=backend.conf"
+            terraform init -input=false -backend-config=backend.conf
+          else
+            # fallback: try other common names for compatibility
+            if [ -f "backend.tfvars" ]; then
+              echo "Found backend.tfvars — running terraform init with backend-config=backend.tfvars"
+              terraform init -input=false -backend-config=backend.tfvars
+            else
+              echo "No backend config file found in $(infraPath). Running terraform init without extra backend-config"
+              terraform init -input=false
+            fi
+          fi
+      displayName: 'Terraform Init (env: $(envName)) - use backend.conf if present'
+
     - task: TerraformTaskV4@4
+      name: tfValidate
       inputs:
         provider: 'azurerm'
         command: 'validate'
         workingDirectory: '$(infraPath)'
-        backendAzureRmResourceGroupName: 'terraform-state-rg'
-        backendAzureRmStorageAccountName: 'tfstatemcda2025'
-        backendAzureRmContainerName: 'tfstate'
-        backendAzureRmKey: '$(envName)/terraform.tfstate'
       displayName: 'Terraform Validate (env: $(envName))'
-    
+
+    # Run 'plan' and write plan file into the infraPath to publish as artifact for per-env apply later.
     - task: TerraformTaskV4@4
+      name: tfPlan
       inputs:
         provider: 'azurerm'
         command: 'plan'
         workingDirectory: '$(infraPath)'
         environmentServiceNameAzureRM: '$(serviceConnection)'
         commandOptions: '-out=$(infraPath)/tfplan'
-        backendAzureRmResourceGroupName: 'terraform-state-rg'
-        backendAzureRmStorageAccountName: 'tfstatemcda2025'
-        backendAzureRmContainerName: 'tfstate'
-        backendAzureRmKey: '$(envName)/terraform.tfstate'
       displayName: 'Terraform Plan (env: $(envName))'
-    
+
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(infraPath)'
@@ -105,7 +137,17 @@ stages:
       inputs:
         helmVersionToInstall: 'latest'
       displayName: 'Install Helm'
-    
+
+    # Cache Helm chart repository/cache to speed repeated operations (optional)
+    - task: Cache@2
+      displayName: 'Cache Helm home/cache'
+      inputs:
+        key: 'helm | $(Agent.OS) | charts | $(Build.SourceVersion)'
+        path: '$(HOME)/.cache/helm'
+        restoreKeys: |
+          helm | $(Agent.OS) | charts
+      condition: succeededOrFailed()
+
     - script: |
         set -e
         charts=(charts/*)
@@ -148,18 +190,20 @@ stages:
       inputs:
         helmVersionToInstall: 'latest'
       displayName: 'Install Helm'
-    
+
     - script: |
         set -e
         mkdir -p "$(Build.ArtifactStagingDirectory)/charts"
         for c in charts/*; do
           if [ -d "$c" ]; then
             name=$(basename "$c")
+            # package using imageTag as version to tie chart -> image
             helm package "$c" -d "$(Build.ArtifactStagingDirectory)/charts" --version "$(imageTag)" --app-version "$(imageTag)"
           fi
         done
       displayName: 'Package Helm Charts (version=$(imageTag))'
-    
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
+
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: '$(Build.ArtifactStagingDirectory)/charts'

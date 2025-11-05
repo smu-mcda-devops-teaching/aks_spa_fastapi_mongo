@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0.2"
+      version = "~> 4.51.0"
     }
   }
 
@@ -71,7 +71,7 @@ resource "azurerm_storage_account" "terraform_state" {
 # Container for Terraform state files
 resource "azurerm_storage_container" "terraform_state" {
   name                  = var.container_name
-  storage_account_id    = azurerm_storage_account.terraform_state.name
+  storage_account_id    = azurerm_storage_account.terraform_state.id
   container_access_type = "private"
 }
 
