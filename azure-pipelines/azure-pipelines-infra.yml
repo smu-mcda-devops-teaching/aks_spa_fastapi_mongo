@@ -92,23 +92,32 @@ stages:
           terraform validate
       displayName: 'Terraform Validate (env: $(envName))'
 
-    - task: AzureCLI@2
+    - task: TerraformTaskV4@4
       name: tfPlan
       inputs:
-        azureSubscription: '$(serviceConnection)'
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
+        provider: 'azurerm'
+        command: 'plan'
+        environmentServiceNameAzureRM: '$(serviceConnection)'
+        commandOptions: '-var-file="$(tfvarsFile)" -out="$(Build.ArtifactStagingDirectory)/$(envName)/tfplan"'
         workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
-        inlineScript: |
-          set -e
-          # Create plan directory if it doesn't exist
-          mkdir -p $(Build.ArtifactStagingDirectory)/$(envName)
+
+    # - task: AzureCLI@2
+    #   name: tfPlan
+    #   inputs:
+    #     azureSubscription: '$(serviceConnection)'
+    #     scriptType: 'bash'
+    #     scriptLocation: 'inlineScript'
+    #     workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+    #     inlineScript: |
+    #       set -e
+    #       # Create plan directory if it doesn't exist
+    #       mkdir -p $(Build.ArtifactStagingDirectory)/$(envName)
           
-          echo "Planning Terraform with vars file: $(tfvarsFile)"
-          terraform plan -input=false \
-            -var-file="$(tfvarsFile)" \
-            -out="$(Build.ArtifactStagingDirectory)/$(envName)/tfplan"
-      displayName: 'Terraform Plan (env: $(envName))'
+    #       echo "Planning Terraform with vars file: $(tfvarsFile)"
+    #       terraform plan -input=false \
+    #         -var-file="$(tfvarsFile)" \
+    #         -out="$(Build.ArtifactStagingDirectory)/$(envName)/tfplan"
+    #   displayName: 'Terraform Plan (env: $(envName))'
 
     - task: PublishPipelineArtifact@1
       inputs:
