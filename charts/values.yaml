@@ -11,8 +11,8 @@ frontend:
   enabled: true
   replicaCount: 2
   image:
-    repository: "{{ .Values.global.image.repository }}/frontend"
-    tag: "{{ .Values.global.image.tag }}"
+    repository: myacr.azurecr.io/frontend
+    tag: latest
   service:
     type: ClusterIP
     port: 80
@@ -22,11 +22,11 @@ backend:
   enabled: true
   replicaCount: 2
   image:
-    repository: "{{ .Values.global.image.repository }}/backend"
-    tag: "{{ .Values.global.image.tag }}"
+    repository: myacr.azurecr.io/backend
+    tag: latest
   keyVault:
-    name: "{{ .Values.global.keyVault.name }}"
-    tenantId: "{{ .Values.global.keyVault.tenantId }}"
+    name: mykeyvaultaks
+    tenantId: ""
   service:
     type: ClusterIP
     port: 8000
@@ -37,7 +37,7 @@ ingress:
   host: azurestaticwebapps.net
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: "letsencrypt-prod" # Update with your cert-manager issuer
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
   tls:
     enabled: true
     secretName: myapp-tls

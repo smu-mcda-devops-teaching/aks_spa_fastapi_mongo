@@ -18,9 +18,7 @@ global:
 frontend:
   enabled: true
   replicaCount: 3
-  image:
-    repository: "{{ .Values.global.image.repository }}/frontend"
-    tag: "{{ .Values.global.image.tag }}"
+  # image.repository and image.tag will be set via --set flags
   service:
     type: ClusterIP
     port: 80
@@ -42,12 +40,8 @@ frontend:
 backend:
   enabled: true
   replicaCount: 3
-  image:
-    repository: "{{ .Values.global.image.repository }}/backend"
-    tag: "{{ .Values.global.image.tag }}"
-  keyVault:
-    name: "{{ .Values.global.keyVault.name }}"
-    tenantId: "{{ .Values.global.keyVault.tenantId }}"
+  # image.repository and image.tag will be set via --set flags
+  # keyVault values will be set via --set flags
   service:
     type: ClusterIP
     port: 8000

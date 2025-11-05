@@ -158,9 +158,9 @@ stages:
           fi
         done
         
-        # Lint umbrella chart
+        # Lint umbrella chart (warning about missing templates/ dir is expected for umbrella charts)
         echo "Linting umbrella chart..."
-        helm lint . || true
+        helm lint . || echo "⚠ Umbrella chart lint warnings are expected (no templates directory)"
         
         # Render templates for each environment to validate
         envs=("dev" "stage" "prod")
