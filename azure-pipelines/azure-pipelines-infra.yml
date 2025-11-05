@@ -229,6 +229,11 @@ stages:
         echo "Packaged charts:"
         ls -lh "$(Build.ArtifactStagingDirectory)/charts"
         echo "==========================================="
+
+        echo "==========================================="
+        echo " Adding deployment script to package "
+        cp deploy.sh "$(Build.ArtifactStagingDirectory)/charts/deploy.sh"
+        echo "==========================================="
       displayName: 'Package Helm Charts (version=$(imageTag))'
       workingDirectory: '$(System.DefaultWorkingDirectory)'
 
